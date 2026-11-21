@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Snakes & Ladders 3D</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;background:#101936;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#fff;-webkit-user-select:none;user-select:none}
+  #c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+  #c:active{cursor:grabbing}
+  #vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(5,8,25,.55) 100%)}
+  #ui{position:fixed;inset:0;pointer-events:none}
+  #ui button,#ui .panel,#ui label{pointer-events:auto}
+  .panel{background:rgba(15,23,42,.62);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12);border-radius:14px}
+
+  #hud{position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:8px;width:190px}
+  .pcard{padding:8px 10px;border-radius:12px;background:rgba(15,23,42,.62);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:2px solid transparent;display:grid;grid-template-columns:14px 1fr auto;gap:4px 8px;align-items:center;font-size:14px;transition:all .25s}
+  .pcard.active{border-color:#fff;background:rgba(40,55,110,.75);transform:translateX(4px)}
+  .dot{display:inline-block;width:14px;height:14px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.7) inset,0 0 8px rgba(0,0,0,.4)}
+  .pname{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ppos{font-variant-numeric:tabular-nums;opacity:.85;font-size:13px}
+  .bar{grid-column:1/4;height:5px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:3px;transition:width .4s}
+
+  #topbtns{position:absolute;top:12px;right:12px;display:flex;gap:8px}
+  .ibtn{width:42px;height:42px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(15,23,42,.62);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;font-size:18px;cursor:pointer;transition:.15s}
+  .ibtn:hover{background:rgba(60,80,150,.7)}
+  .ibtn.wide{width:auto;padding:0 14px;font-size:14px;font-weight:600}
+
+  #toast{position:absolute;top:70px;left:50%;transform:translate(-50%,-10px);padding:10px 20px;border-radius:999px;background:rgba(15,23,42,.8);border:1px solid rgba(255,255,255,.2);font-weight:600;font-size:16px;opacity:0;transition:opacity .25s,transform .25s;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis}
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+
+  #bottom{position:absolute;left:0;right:0;bottom:16px;display:flex;flex-direction:column;align-items:center;gap:10px}
+  #status{display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;font-weight:600;font-size:14px}
+  #roll{padding:14px 34px;font-size:20px;font-weight:800;border:none;border-radius:16px;cursor:pointer;color:#2b1700;background:linear-gradient(180deg,#ffe27a,#ffb02e);box-shadow:0 6px 0 #b86e00,0 12px 24px rgba(0,0,0,.4);transition:transform .08s,box-shadow .08s,filter .2s}
+  #roll:active:not(:disabled){transform:translateY(4px);box-shadow:0 2px 0 #b86e00,0 6px 12px rgba(0,0,0,.4)}
+  #roll:disabled{filter:grayscale(.7) brightness(.7);cursor:default}
+  #hint{font-size:12px;opacity:.6;text-align:center;padding:0 10px}
+
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(5,8,25,.55);padding:16px;z-index:5}
+  .overlay.hidden{display:none}
+  .card{width:min(420px,100%);padding:26px 24px;text-align:center;pointer-events:auto}
+  .card h1{font-size:30px;line-height:1.1;margin-bottom:4px;background:linear-gradient(90deg,#ffe27a,#7be08b);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .card .sub{opacity:.75;font-size:14px;margin-bottom:18px}
+  .card h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;opacity:.65;margin:14px 0 8px}
+  .seg{display:flex;gap:8px;justify-content:center}
+  .seg button{flex:1;padding:10px 0;border-radius:10px;border:2px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+  .seg button.on{border-color:#ffd24d;background:rgba(255,210,77,.18)}
+  .chk{display:flex;align-items:center;gap:10px;justify-content:center;font-size:15px;cursor:pointer}
+  .chk input{width:18px;height:18px;accent-color:#ffb02e}
+  .rules{font-size:12.5px;opacity:.7;text-align:left;margin-top:14px;line-height:1.5;padding-left:18px}
+  .big{margin-top:18px;padding:13px 30px;font-size:18px;font-weight:800;border:none;border-radius:14px;cursor:pointer;color:#2b1700;background:linear-gradient(180deg,#ffe27a,#ffb02e);box-shadow:0 5px 0 #b86e00}
+  .big:active{transform:translateY(3px);box-shadow:0 2px 0 #b86e00}
+  .link{display:block;margin:12px auto 0;background:none;border:none;color:#aac;font-size:14px;cursor:pointer;text-decoration:underline}
+  #winName{font-size:34px;font-weight:900;margin:6px 0 4px}
+
+  @media (max-width:640px){
+    #hud{width:150px;top:8px;left:8px;gap:5px}
+    .pcard{padding:5px 8px;font-size:12px}
+    #topbtns{top:8px;right:8px;gap:6px}
+    .ibtn{width:38px;height:38px}
+    #toast{top:auto;bottom:130px;font-size:14px}
+    #hint{display:none}
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="vignette"></div>
+
+<div id="ui">
+  <div id="hud"></div>
+  <div id="topbtns">
+    <button class="ibtn" id="btnCam" title="Reset camera">🎥</button>
+    <button class="ibtn" id="btnSnd" title="Sound on/off">🔊</button>
+    <button class="ibtn wide" id="btnNew" title="New game">⟳ New</button>
+  </div>
+  <div id="toast"></div>
+  <div id="bottom">
+    <div id="status" class="panel"></div>
+    <button id="roll">🎲 Roll Dice</button>
+    <div id="hint">Drag to rotate · scroll / pinch to zoom · Space to roll</div>
+  </div>
+
+  <div id="menu" class="overlay">
+    <div class="card panel">
+      <h1>Snakes &amp; Ladders 3D</h1>
+      <div class="sub">Race to square 100!</div>
+      <h3>Players</h3>
+      <div class="seg" id="segPlayers">
+        <button data-n="2" class="on">2</button>
+        <button data-n="3">3</button>
+        <button data-n="4">4</button>
+      </div>
+      <h3>Mode</h3>
+      <label class="chk"><input type="checkbox" id="chkCpu" checked> Other players are computer-controlled</label>
+      <ul class="rules">
+        <li>Ladders 🪜 lift you up, snakes 🐍 slide you down.</li>
+        <li>Roll the exact number to land on 100.</li>
+        <li>Rolling a 6 gives you another turn.</li>
+      </ul>
+      <button class="big" id="btnStart">Start Game</button>
+    </div>
+  </div>
+
+  <div id="win" class="overlay hidden">
+    <div class="card panel">
+      <div style="font-size:54px">🏆</div>
+      <div id="winName"></div>
+      <div class="sub">reached square 100!</div>
+      <button class="big" id="btnAgain">Play Again</button>
+      <button class="link" id="btnMenu">Back to menu</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script id="game">
+(() => {
+'use strict';
+
+/* ---------------------------------------------------------------- data */
+const SNAKES  = {16:6, 47:26, 49:11, 56:53, 62:19, 64:60, 87:24, 93:73, 95:75, 98:78};
+const LADDERS = {1:38, 4:14, 9:31, 21:42, 28:84, 36:44, 51:67, 71:91, 80:100};
+const COLORS = ['#ef4444','#3b82f6','#22c55e','#facc15'];
+const NAMES  = ['Red','Blue','Green','Yellow'];
+const OFFS   = [[-0.2,-0.2],[0.2,-0.2],[-0.2,0.2],[0.2,0.2]];
+const TOP = 0.2, TABLE_Y = -0.3;
+const START = new THREE.Vector3(-4.5, TABLE_Y, 6.2);
+
+/* ------------------------------------------------------------- helpers */
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const easeInOut = t => t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+function tween(dur, fn, ease){
+  return new Promise(res => {
+    const t0 = performance.now();
+    (function step(now){
+      const raw = clamp((now - t0)/(dur*1000), 0, 1);
+      fn(ease ? ease(raw) : raw, raw);
+      if (raw < 1) requestAnimationFrame(step); else res();
+    })(t0);
+  });
+}
+function tilePos(n){
+  const i = n-1, row = Math.floor(i/10);
+  let col = i % 10; if (row % 2 === 1) col = 9 - col;
+  return new THREE.Vector3(col-4.5, TOP, 4.5-row);
+}
+
+/* ------------------------------------------------------ renderer/scene */
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x101936);
+scene.fog = new THREE.Fog(0x101936, 32, 62);
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+
+scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x3a2a1a, 0.8));
+const sun = new THREE.DirectionalLight(0xfff1d6, 0.85);
+sun.position.set(7, 15, 9);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, {left:-13,right:13,top:13,bottom:-13,near:1,far:45});
+sun.shadow.bias = -0.0006;
+scene.add(sun);
+const fill = new THREE.PointLight(0x88aaff, 0.35, 60); fill.position.set(-10, 8, -6); scene.add(fill);
+
+/* ---------------------------------------------------------------- table */
+const table = new THREE.Mesh(
+  new THREE.CircleGeometry(20, 72),
+  new THREE.MeshStandardMaterial({color:0x1d4a63, roughness:0.95})
+);
+table.rotation.x = -Math.PI/2; table.position.y = TABLE_Y; table.receiveShadow = true;
+scene.add(table);
+const ring = new THREE.Mesh(
+  new THREE.RingGeometry(7.6, 7.75, 96),
+  new THREE.MeshBasicMaterial({color:0x2c6d8f, transparent:true, opacity:.5})
+);
+ring.rotation.x = -Math.PI/2; ring.position.y = TABLE_Y+0.005; scene.add(ring);
+
+/* ---------------------------------------------------------------- board */
+const board = new THREE.Group(); scene.add(board);
+const woodDark = new THREE.MeshStandardMaterial({color:0x4a2d12, roughness:0.7});
+const slab = new THREE.Mesh(new THREE.BoxGeometry(10.7,0.3,10.7), new THREE.MeshStandardMaterial({color:0x6b4423, roughness:0.8}));
+slab.position.y = -0.15; slab.castShadow = slab.receiveShadow = true; board.add(slab);
+[[0,-5.2,10.7,0.3],[0,5.2,10.7,0.3]].forEach(([x,z,w,d]) => {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,0.45,d), woodDark);
+  m.position.set(x,0.075,z); m.castShadow = m.receiveShadow = true; board.add(m);
+});
+[[-5.2,0],[5.2,0]].forEach(([x,z]) => {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.45,10.1), woodDark);
+  m.position.set(x,0.075,z); m.castShadow = m.receiveShadow = true; board.add(m);
+});
+
+const maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+function tileTexture(n){
+  const s = 128, c = document.createElement('canvas'); c.width = c.height = s;
+  const g = c.getContext('2d');
+  const i = n-1, row = Math.floor(i/10); let col = i%10; if (row%2) col = 9-col;
+  const even = (row+col)%2 === 0;
+  let base = even ? '#fdebc0' : '#f2b866';
+  if (LADDERS[n]) base = even ? '#c5eeae' : '#a4de8a';
+  if (SNAKES[n])  base = even ? '#f9bab0' : '#f2a095';
+  if (n === 100)  base = '#ffd84d';
+  g.fillStyle = base; g.fillRect(0,0,s,s);
+  g.strokeStyle = 'rgba(80,40,0,.22)'; g.lineWidth = 5; g.strokeRect(2.5,2.5,s-5,s-5);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#4a2c0f';
+  const special = LADDERS[n] || SNAKES[n] || n === 100;
+  g.font = 'bold 48px system-ui, sans-serif';
+  g.fillText(String(n), s/2, special ? 54 : 66);
+  if (special){
+    g.font = 'bold 28px system-ui, sans-serif';
+    if (LADDERS[n]){ g.fillStyle = '#1b6b25'; g.fillText('↑ ' + LADDERS[n], s/2, 100); }
+    else if (SNAKES[n]){ g.fillStyle = '#a3261a'; g.fillText('↓ ' + SNAKES[n], s/2, 100); }
+    else { g.fillStyle = '#7a4a00'; g.font = 'bold 22px system-ui, sans-serif'; g.fillText('FINISH', s/2, 100); }
+  }
+  const t = new THREE.CanvasTexture(c); t.anisotropy = maxAniso;
+  return t;
+}
+const tileGeo = new THREE.BoxGeometry(0.96, 0.2, 0.96);
+const tileSide = new THREE.MeshStandardMaterial({color:0x8a5a2b, roughness:0.8});
+for (let n = 1; n <= 100; n++){
+  const top = new THREE.MeshStandardMaterial({map: tileTexture(n), roughness:0.6});
+  const m = new THREE.Mesh(tileGeo, [tileSide,tileSide,top,tileSide,tileSide,tileSide]);
+  const p = tilePos(n); m.position.set(p.x, 0.1, p.z);
+  m.receiveShadow = true; board.add(m);
+}
+
+/* -------------------------------------------------------------- ladders */
+const railMat = new THREE.MeshStandardMaterial({color:0xb5702a, roughness:0.6});
+const rungMat = new THREE.MeshStandardMaterial({color:0xe0a85e, roughness:0.6});
+function buildLadder(from, to){
+  const a = tilePos(from), b = tilePos(to);
+  const dx = b.x-a.x, dz = b.z-a.z, L = Math.hypot(dx,dz);
+  const g = new THREE.Group();
+  g.position.set((a.x+b.x)/2, TOP+0.06, (a.z+b.z)/2);
+  g.rotation.y = Math.atan2(dx, dz);
+  [-0.2, 0.2].forEach(x => {
+    const r = new THREE.Mesh(new THREE.BoxGeometry(0.07,0.07,L), railMat);
+    r.position.x = x; r.castShadow = true; g.add(r);
+  });
+  const count = Math.max(3, Math.floor(L/0.45));
+  for (let i=0;i<count;i++){
+    const z = -L/2 + 0.25 + (L-0.5)*(i/(count-1));
+    const rung = new THREE.Mesh(new THREE.BoxGeometry(0.42,0.05,0.06), rungMat);
+    rung.position.set(0, 0.0, z); rung.castShadow = true; g.add(rung);
+  }
+  board.add(g);
+}
+Object.entries(LADDERS).forEach(([f,t]) => buildLadder(+f, +t));
+
+/* --------------------------------------------------------------- snakes */
+const SNAKE_PALETTE = [
+  ['#2e9e4f','#17622f'], ['#d9452f','#7d1d10'], ['#7b4fc9','#43257f'], ['#e0a31a','#8a5d00'],
+  ['#1f8aa8','#0d4d63'], ['#c9367d','#781a47']
+];
+function snakeTexture(c1, c2){
+  const c = document.createElement('canvas'); c.width = 128; c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = c1; g.fillRect(0,0,128,64);
+  g.fillStyle = '#f3e9c6'; g.fillRect(0,6,128,22);
+  g.fillStyle = c2;
+  g.beginPath(); g.ellipse(64,48,52,13,0,0,Math.PI*2); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.35)';
+  g.beginPath(); g.ellipse(64,48,14,5,0,0,Math.PI*2); g.fill();
+  const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.anisotropy = maxAniso;
+  return t;
+}
+const snakeObjs = {};
+function buildSnake(headTile, tailTile, pal){
+  const tailV = tilePos(tailTile), headV = tilePos(headTile);
+  const dir = new THREE.Vector3().subVectors(headV, tailV); dir.y = 0;
+  const L = dir.length(), u = dir.clone().normalize();
+  const perp = new THREE.Vector3(-u.z, 0, u.x);
+  const waves = Math.max(2, Math.round(L/1.7));
+  const pts = [];
+  for (let i=0;i<=44;i++){
+    const t = i/44;
+    const off = 0.55*Math.sin(Math.PI*waves*t)*(0.55+0.45*Math.sin(Math.PI*t));
+    pts.push(new THREE.Vector3(tailV.x,0,tailV.z).addScaledVector(u,L*t).addScaledVector(perp,off).setY(TOP+0.11));
+  }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const M = Math.max(60, Math.round(L*14)), R = 12;
+  const pos = [], uv = [], idx = [];
+  const up = new THREE.Vector3(0,1,0);
+  for (let i=0;i<=M;i++){
+    const t = i/M;
+    const P = curve.getPointAt(t), T = curve.getTangentAt(t).normalize();
+    const N = new THREE.Vector3().crossVectors(up,T); if (N.lengthSq()<1e-6) N.set(1,0,0); N.normalize();
+    const B = new THREE.Vector3().crossVectors(T,N).normalize();
+    const r = 0.035 + 0.1*Math.pow(Math.min(1, t/0.45), 0.7);
+    for (let j=0;j<=R;j++){
+      const a = j/R*Math.PI*2, nx = Math.cos(a), ny = Math.sin(a);
+      pos.push(P.x + r*(nx*N.x+ny*B.x), P.y + r*(nx*N.y+ny*B.y), P.z + r*(nx*N.z+ny*B.z));
+      uv.push(t*L*0.9, j/R);
+    }
+  }
+  for (let i=0;i<M;i++) for (let j=0;j<R;j++){
+    const a = i*(R+1)+j, b = a+R+1;
+    idx.push(a,a+1,b, b,a+1,b+1);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv,2));
+  geo.setIndex(idx); geo.computeVertexNormals();
+  const body = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({map: snakeTexture(pal[0],pal[1]), roughness:0.45}));
+  body.castShadow = true;
+
+  // head
+  const head = new THREE.Group();
+  const hp = curve.getPointAt(1), ht = curve.getTangentAt(1);
+  head.position.copy(hp); head.lookAt(hp.clone().add(ht));
+  const headMat = new THREE.MeshStandardMaterial({color: pal[0], roughness:0.4});
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(1,20,14), headMat);
+  skull.scale.set(0.2,0.14,0.28); skull.position.z = 0.07; skull.castShadow = true; head.add(skull);
+  [-1,1].forEach(s => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05,12,10), new THREE.MeshStandardMaterial({color:0xffffff}));
+    eye.position.set(0.1*s, 0.08, 0.14); head.add(eye);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.027,10,8), new THREE.MeshStandardMaterial({color:0x000000}));
+    pupil.position.set(0.11*s, 0.09, 0.18); head.add(pupil);
+  });
+  const tongueMat = new THREE.MeshStandardMaterial({color:0xe11d2e});
+  const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.025,0.012,0.15), tongueMat);
+  tongue.position.set(0,-0.02,0.41); head.add(tongue);
+  [-1,1].forEach(s => {
+    const prong = new THREE.Mesh(new THREE.BoxGeometry(0.022,0.012,0.08), tongueMat);
+    prong.position.set(0.025*s,-0.02,0.5); prong.rotation.y = 0.5*s; head.add(prong);
+  });
+
+  const grp = new THREE.Group(); grp.add(body, head); board.add(grp);
+  snakeObjs[headTile] = {curve, length: L};
+}
+Object.entries(SNAKES).forEach(([h,t],i) => buildSnake(+h, +t, SNAKE_PALETTE[i % SNAKE_PALETTE.length]));
+
+/* ----------------------------------------------------------------- dice */
+const PIPS = {
+  1:[[1,1]], 2:[[0,0],[2,2]], 3:[[0,0],[1,1],[2,2]], 4:[[0,0],[2,0],[0,2],[2,2]],
+  5:[[0,0],[2,0],[1,1],[0,2],[2,2]], 6:[[0,0],[2,0],[0,1],[2,1],[0,2],[2,2]]
+};
+function diceFaceTexture(n){
+  const s = 128, c = document.createElement('canvas'); c.width = c.height = s;
+  const g = c.getContext('2d');
+  g.fillStyle = '#c9ccd6'; g.fillRect(0,0,s,s);
+  g.fillStyle = '#fbfbfd';
+  g.beginPath(); g.roundRect ? g.roundRect(5,5,s-10,s-10,22) : g.rect(5,5,s-10,s-10); g.fill();
+  PIPS[n].forEach(([x,y]) => {
+    g.fillStyle = n === 1 ? '#d42b2b' : '#1b1b25';
+    g.beginPath(); g.arc(30+x*34, 30+y*34, n===1?15:10, 0, Math.PI*2); g.fill();
+  });
+  return new THREE.CanvasTexture(c);
+}
+// BoxGeometry material order: +x, -x, +y, -y, +z, -z  (opposite faces sum to 7)
+const FACE_VALUES  = [2,5,1,6,3,4];
+const FACE_NORMALS = {2:[1,0,0],5:[-1,0,0],1:[0,1,0],6:[0,-1,0],3:[0,0,1],4:[0,0,-1]};
+const dice = new THREE.Mesh(
+  new THREE.BoxGeometry(0.8,0.8,0.8),
+  FACE_VALUES.map(v => new THREE.MeshStandardMaterial({map: diceFaceTexture(v), roughness:0.35}))
+);
+dice.castShadow = true; scene.add(dice);
+const UP = new THREE.Vector3(0,1,0);
+function faceQuat(v){
+  const n = new THREE.Vector3(...FACE_NORMALS[v]);
+  const q = new THREE.Quaternion().setFromUnitVectors(n, UP);
+  const yaw = new THREE.Quaternion().setFromAxisAngle(UP, Math.random()*Math.PI*2);
+  return yaw.multiply(q);
+}
+const DICE_Y = TABLE_Y + 0.4;
+const dicePos = new THREE.Vector3(7.6, DICE_Y, 1.0);
+let rolling = false;
+dice.quaternion.copy(faceQuat(1)); dice.position.copy(dicePos);
+
+async function rollDice(){
+  rolling = true; sfx.dice();
+  const v = 1 + Math.floor(Math.random()*6);
+  const target = faceQuat(v);
+  const axis = new THREE.Vector3(Math.random()-.5, Math.random()-.5, Math.random()-.5).normalize();
+  const w = 16 + Math.random()*8;
+  const drift = new THREE.Vector3((Math.random()-.5)*1.6, 0, (Math.random()-.5)*1.6);
+  const D = 1.5; let qMid = null, lastT = 0;
+  await tween(D, (_, t) => {
+    const bounce = 2.6*(1-t)*Math.abs(Math.sin(t*Math.PI*3.5));
+    dice.position.set(dicePos.x + drift.x*(1-t), dicePos.y + bounce, dicePos.z + drift.z*(1-t));
+    if (t < 0.7){
+      dice.rotateOnWorldAxis(axis, (t-lastT)*D*w*(1-t)); lastT = t;
+    } else {
+      if (!qMid) qMid = dice.quaternion.clone();
+      const k = (t-0.7)/0.3;
+      dice.quaternion.copy(qMid).slerp(target, k*k*(3-2*k));
+    }
+  });
+  dice.position.copy(dicePos); dice.quaternion.copy(target);
+  rolling = false;
+  return v;
+}
+
+/* ---------------------------------------------------------------- pawns */
+function makePawn(color){
+  const g = new THREE.Group(), inner = new THREE.Group(); g.add(inner);
+  const mat = new THREE.MeshStandardMaterial({color, roughness:0.3, metalness:0.15});
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.2,0.1,28), mat); base.position.y = 0.05;
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.15,0.36,28), mat); body.position.y = 0.28;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.125,28,18), mat); head.position.y = 0.55;
+  [base,body,head].forEach(m => { m.castShadow = true; inner.add(m); });
+  g.userData.inner = inner;
+  return g;
+}
+
+/* ------------------------------------------------------------ game state */
+let players = [], current = 0, busy = false, gameOver = false, started = false, gameId = 0;
+let cfg = {n:2, cpu:true};
+const focus = new THREE.Vector3(); let focusOn = false;
+
+function posVec(p, n){
+  const base = n === 0 ? START.clone() : tilePos(n);
+  return base.add(new THREE.Vector3(p.off[0], 0, p.off[1]));
+}
+function setFocus(p){ focus.set(p.mesh.position.x*0.55, 0, p.mesh.position.z*0.55); }
+
+function initGame(n, cpu){
+  gameId++;
+  players.forEach(p => scene.remove(p.mesh));
+  players = [];
+  for (let i=0;i<n;i++){
+    const p = {idx:i, name: NAMES[i] + (cpu && i>0 ? ' (CPU)' : ''), color: COLORS[i], cpu: cpu && i>0, pos:0, off: OFFS[i], mesh: makePawn(COLORS[i])};
+    p.mesh.position.copy(posVec(p,0)); scene.add(p.mesh); players.push(p);
+  }
+  current = 0; busy = false; gameOver = false; started = true; focusOn = false;
+  $('menu').classList.add('hidden'); $('win').classList.add('hidden');
+  resetCamera();
+  refreshUI();
+  toast('Game on! ' + players[0].name + ' starts', 2000);
+}
+
+async function hop(p, from, to){
+  const a = posVec(p,from), b = posVec(p,to);
+  const first = from === 0, h = first ? 0.9 : 0.38, d = first ? 0.5 : 0.3;
+  sfx.hop();
+  await tween(d, e => {
+    p.mesh.position.lerpVectors(a,b,e);
+    p.mesh.position.y += h*4*e*(1-e);
+    setFocus(p);
+  });
+  p.mesh.position.copy(b);
+}
+async function slideLadder(p, from, to){
+  const a = posVec(p,from), b = posVec(p,to);
+  a.y = b.y = TOP + 0.12;
+  const L = a.distanceTo(b);
+  await tween(0.5 + L*0.12, e => { p.mesh.position.lerpVectors(a,b,e); setFocus(p); }, easeInOut);
+  p.mesh.position.copy(posVec(p,to));
+}
+async function slideSnake(p, head, tail){
+  const sn = snakeObjs[head];
+  const ox = p.off[0], oz = p.off[1];
+  await tween(1.1 + sn.length*0.07, e => {
+    const pt = sn.curve.getPointAt(1-e);
+    p.mesh.position.set(pt.x+ox, pt.y+0.12, pt.z+oz);
+    setFocus(p);
+  }, easeInOut);
+  p.mesh.position.copy(posVec(p,tail));
+}
+
+async function doRoll(){
+  if (busy || gameOver || !started) return;
+  const gid = gameId; busy = true; refreshUI();
+  const pl = players[current];
+  const v = await rollDice(); if (gid !== gameId) return;
+  toast(pl.name + ' rolled a ' + v);
+  focusOn = true;
+  await sleep(550); if (gid !== gameId) return;
+  let won = false;
+  if (pl.pos + v > 100){
+    toast(pl.name + ' needs ' + (100-pl.pos) + ' or less to finish', 2200);
+    await sleep(1200); if (gid !== gameId) return;
+  } else {
+    for (let s=0;s<v;s++){
+      await hop(pl, pl.pos, pl.pos+1); if (gid !== gameId) return;
+      pl.pos++; refreshUI();
+    }
+    await sleep(200); if (gid !== gameId) return;
+    if (LADDERS[pl.pos]){
+      const to = LADDERS[pl.pos];
+      toast('🪜 Ladder! ' + pl.pos + ' → ' + to, 2400); sfx.ladder();
+      await slideLadder(pl, pl.pos, to); if (gid !== gameId) return;
+      pl.pos = to; refreshUI();
+    } else if (SNAKES[pl.pos]){
+      const to = SNAKES[pl.pos];
+      toast('🐍 Snake! ' + pl.pos + ' → ' + to, 2400); sfx.snake();
+      await slideSnake(pl, pl.pos, to); if (gid !== gameId) return;
+      pl.pos = to; refreshUI();
+    }
+    if (pl.pos === 100) won = true;
+  }
+  focusOn = false;
+  if (won){
+    gameOver = true; busy = false; sfx.win(); burst();
+    $('winName').textContent = pl.name; $('winName').style.color = pl.color;
+    refreshUI();
+    setTimeout(() => { if (gid === gameId) $('win').classList.remove('hidden'); }, 1800);
+    return;
+  }
+  if (v === 6) toast(pl.name + ' rolled a 6 — roll again!', 1800);
+  else current = (current + 1) % players.length;
+  busy = false; refreshUI(); maybeCpu();
+}
+function maybeCpu(){
+  if (gameOver || !players[current] || !players[current].cpu) return;
+  const gid = gameId;
+  setTimeout(() => { if (gid === gameId) doRoll(); }, 1000);
+}
+
+/* ------------------------------------------------------------------- UI */
+const hud = $('hud'), rollBtn = $('roll'), statusEl = $('status'), toastEl = $('toast');
+function refreshUI(){
+  hud.innerHTML = players.map((p,i) =>
+    `<div class="pcard ${i===current && !gameOver ? 'active':''}">
+       <span class="dot" style="background:${p.color}"></span>
+       <span class="pname">${p.name}</span>
+       <span class="ppos">${p.pos===0 ? 'Start' : p.pos}</span>
+       <div class="bar"><i style="width:${p.pos}%;background:${p.color}"></i></div>
+     </div>`).join('');
+  const pl = players[current];
+  if (!pl) return;
+  rollBtn.disabled = busy || gameOver || pl.cpu;
+  rollBtn.textContent = pl.cpu ? '🤖 CPU turn…' : '🎲 Roll Dice';
+  statusEl.innerHTML = gameOver
+    ? `🏆 ${pl.name} wins!`
+    : `<span class="dot" style="background:${pl.color}"></span> ${pl.name}'s turn`;
+}
+let toastTimer = 0;
+function toast(msg, ms = 1700){
+  toastEl.textContent = msg; toastEl.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), ms);
+}
+rollBtn.addEventListener('click', () => { ensureAudio(); if (players[current] && !players[current].cpu) doRoll(); });
+window.addEventListener('keydown', e => {
+  if ((e.code === 'Space' || e.code === 'Enter') && started && $('win').classList.contains('hidden')){
+    if (e.target && e.target.tagName === 'BUTTON') return;
+    e.preventDefault(); ensureAudio();
+    if (players[current] && !players[current].cpu) doRoll();
+  }
+});
+document.querySelectorAll('#segPlayers button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#segPlayers button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); cfg.n = +b.dataset.n;
+}));
+$('chkCpu').addEventListener('change', e => cfg.cpu = e.target.checked);
+$('btnStart').addEventListener('click', () => { ensureAudio(); initGame(cfg.n, cfg.cpu); });
+$('btnAgain').addEventListener('click', () => { ensureAudio(); initGame(cfg.n, cfg.cpu); });
+$('btnMenu').addEventListener('click', () => { gameId++; started = false; busy = false; $('win').classList.add('hidden'); $('menu').classList.remove('hidden'); });
+$('btnNew').addEventListener('click', () => { gameId++; started = false; busy = false; $('menu').classList.remove('hidden'); });
+$('btnCam').addEventListener('click', resetCamera);
+$('btnSnd').addEventListener('click', () => { muted = !muted; $('btnSnd').textContent = muted ? '🔇' : '🔊'; ensureAudio(); });
+
+/* ---------------------------------------------------------------- sound */
+let actx = null, muted = false;
+function ensureAudio(){
+  if (!actx){ try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
+  if (actx && actx.state === 'suspended') actx.resume();
+}
+function tone(f, d, type='sine', vol=0.15, f2=null, delay=0){
+  if (!actx || muted) return;
+  const t = actx.currentTime + delay;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (f2) o.frequency.exponentialRampToValueAtTime(f2, t+d);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t+d);
+  o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+d+0.03);
+}
+const sfx = {
+  dice(){ for (let i=0;i<9;i++) tone(180+Math.random()*320, 0.05, 'square', 0.05, null, i*0.15); },
+  hop(){ tone(520, 0.12, 'sine', 0.12, 780); },
+  snake(){ tone(520, 0.95, 'sawtooth', 0.1, 60); },
+  ladder(){ [392,494,587,784].forEach((f,i) => tone(f, 0.2, 'triangle', 0.14, null, i*0.1)); },
+  win(){ [523,659,784,1047,784,1047,1319].forEach((f,i) => tone(f, 0.25, 'triangle', 0.16, null, i*0.13)); }
+};
+
+/* ------------------------------------------------------------- confetti */
+const confetti = [];
+const confMats = [0xff5252,0xffd24d,0x5ce08a,0x58a6ff,0xd16bff,0xffffff].map(c => new THREE.MeshBasicMaterial({color:c, side:THREE.DoubleSide}));
+const confGeo = new THREE.PlaneGeometry(0.16, 0.1);
+function burst(){
+  for (let i=0;i<180;i++){
+    const m = new THREE.Mesh(confGeo, confMats[i % confMats.length]);
+    m.position.set((Math.random()-.5)*5, 3+Math.random()*2, (Math.random()-.5)*5);
+    m.userData.v = new THREE.Vector3((Math.random()-.5)*6, 2+Math.random()*7, (Math.random()-.5)*6);
+    m.userData.w = new THREE.Vector3(Math.random()*10, Math.random()*10, Math.random()*10);
+    scene.add(m); confetti.push(m);
+  }
+}
+function updateConfetti(dt){
+  for (let i=confetti.length-1;i>=0;i--){
+    const m = confetti[i], u = m.userData;
+    u.v.y -= 8*dt; u.v.multiplyScalar(1 - 0.35*dt);
+    m.position.addScaledVector(u.v, dt);
+    m.rotation.x += u.w.x*dt; m.rotation.y += u.w.y*dt; m.rotation.z += u.w.z*dt;
+    if (m.position.y < TABLE_Y-3){ scene.remove(m); confetti.splice(i,1); }
+  }
+}
+
+/* --------------------------------------------------------------- camera */
+const cam = {theta:0.6, phi:0.95, zoom:1};
+const target = new THREE.Vector3(), zeroV = new THREE.Vector3();
+let fitR = 17;
+function fitCamera(){
+  const w = window.innerWidth, h = window.innerHeight, aspect = w/h;
+  renderer.setSize(w, h, false);
+  camera.aspect = aspect; camera.updateProjectionMatrix();
+  fitR = 17 / Math.min(1, aspect*1.1);
+  if (aspect >= 1.15) dicePos.set(7.6, DICE_Y, 1.0); else dicePos.set(2.6, DICE_Y, 7.8);
+  if (!rolling) dice.position.copy(dicePos);
+}
+function updateCamera(){
+  const r = fitR * cam.zoom;
+  camera.position.set(
+    target.x + r*Math.sin(cam.phi)*Math.sin(cam.theta),
+    target.y + r*Math.cos(cam.phi),
+    target.z + r*Math.sin(cam.phi)*Math.cos(cam.theta));
+  camera.lookAt(target);
+}
+function resetCamera(){
+  let th = cam.theta % (Math.PI*2); if (th > Math.PI) th -= Math.PI*2; if (th < -Math.PI) th += Math.PI*2;
+  const s = {th, ph: cam.phi, z: cam.zoom};
+  tween(0.9, e => { cam.theta = s.th*(1-e); cam.phi = s.ph + (0.95-s.ph)*e; cam.zoom = s.z + (1-s.z)*e; }, easeInOut);
+}
+const ptrs = new Map(); let lastPinch = 0;
+const pinchDist = () => { const v = [...ptrs.values()]; return Math.hypot(v[0].x-v[1].x, v[0].y-v[1].y); };
+canvas.addEventListener('pointerdown', e => {
+  try { canvas.setPointerCapture(e.pointerId); } catch(_){}
+  ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if (ptrs.size === 2) lastPinch = pinchDist();
+});
+canvas.addEventListener('pointermove', e => {
+  const p = ptrs.get(e.pointerId); if (!p) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+  if (ptrs.size === 1){ cam.theta -= dx*0.006; cam.phi = clamp(cam.phi - dy*0.006, 0.2, 1.38); }
+  else if (ptrs.size === 2){ const d = pinchDist(); if (lastPinch > 0) cam.zoom = clamp(cam.zoom*lastPinch/d, 0.5, 1.8); lastPinch = d; }
+});
+['pointerup','pointercancel','pointerleave'].forEach(ev => canvas.addEventListener(ev, e => { ptrs.delete(e.pointerId); lastPinch = 0; }));
+canvas.addEventListener('wheel', e => { e.preventDefault(); cam.zoom = clamp(cam.zoom*Math.exp(e.deltaY*0.001), 0.5, 1.8); }, {passive:false});
+window.addEventListener('resize', fitCamera);
+
+/* ----------------------------------------------------------------- loop */
+const clock = new THREE.Clock();
+fitCamera(); updateCamera();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05), time = clock.elapsedTime;
+  if (!started) cam.theta += dt*0.15;
+  target.lerp(focusOn ? focus : zeroV, 1 - Math.exp(-dt*3));
+  updateCamera();
+  players.forEach((p,i) => {
+    const inner = p.mesh.userData.inner;
+    if (!busy && !gameOver && i === current && started){
+      inner.position.y = 0.05 + 0.05*Math.sin(time*5);
+      inner.rotation.y += dt*2;
+    } else { inner.position.y *= 0.8; }
+  });
+  updateConfetti(dt);
+  renderer.render(scene, camera);
+}
+animate();
+})();
+</script>
+</body>
+</html>
